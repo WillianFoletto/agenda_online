@@ -25,10 +25,6 @@ export const AppointmentProvider: React.FC<{ children: React.ReactNode }> = ({ c
     }
   }, []);
 
-  useEffect(() => {
-    localStorage.setItem('appointments', JSON.stringify(appointments));
-  }, [appointments]);
-
   const bookAppointment = (userId: string, date: string, time: string): boolean => {
     // Check if slot is already taken
     const slotTaken = appointments.some(
@@ -54,7 +50,9 @@ export const AppointmentProvider: React.FC<{ children: React.ReactNode }> = ({ c
       createdAt: new Date().toISOString(),
     };
 
-    setAppointments([...appointments, newAppointment]);
+    const updatedAppointments = [...appointments, newAppointment];
+    setAppointments(updatedAppointments);
+    localStorage.setItem('appointments', JSON.stringify(updatedAppointments));
     return true;
   };
 
