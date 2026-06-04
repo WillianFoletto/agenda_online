@@ -5,6 +5,7 @@ import { AppointmentProvider } from './context/AppointmentContext';
 import { Login } from './pages/Login';
 import { Register } from './pages/Register';
 import { Scheduling } from './pages/Scheduling';
+import { Admin } from './pages/Admin';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isAuthenticated } = useAuth();
@@ -46,6 +47,7 @@ function App() {
                 </ProtectedRoute>
               }
             />
+            <Route path="/admin" element={<Admin />} />
             <Route path="/" element={<Navigate to="/login" />} />
           </Routes>
         </Router>
