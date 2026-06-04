@@ -1,10 +1,11 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Appointment } from '../types';
 import { mockAppointments, availableTimeSlots } from '../data/mockData';
+import { supabase } from '../lib/supabase';
 
 interface AppointmentContextType {
   appointments: Appointment[];
-  bookAppointment: (userId: string, date: string, time: string) => boolean;
+  bookAppointment: (userId: string, date: string, time: string) => Promise<boolean>;
   getAppointmentsForDate: (date: string) => Appointment[];
   getAppointmentsForUser: (userId: string) => Appointment[];
   hasUserAppointmentOnDate: (userId: string, date: string) => boolean;
@@ -17,15 +18,57 @@ export const AppointmentProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const [appointments, setAppointments] = useState<Appointment[]>([]);
 
   useEffect(() => {
-    const stored = localStorage.getItem('appointments');
-    if (stored) {
-      setAppointments(JSON.parse(stored));
-    } else {
-      setAppointments(mockAppointments);
-    }
+    const loadAppointments = async () => {
+      console.log('[Supabase] Carregando agendamentos...');
+      
+      try {
+        const { data, error } = await supabase.from('appointments').select('*');
+        
+        if (error) {
+          console.error('[Supabase] Erro ao carregar:', error);
+          // Fallback para localStorage
+          const stored = localStorage.getItem('appointments');
+          if (stored) {
+            setAppointments(JSON.parse(stored));
+          } else {
+            setAppointments(mockAppointments);
+          }
+          return;
+        }
+        
+        console.log('[Supabase] Agendamentos encontrados:', data?.length || 0);
+        
+        // Converter formato snake_case do Supabase para camelCase do TypeScript
+        const convertedAppointments: Appointment[] = (data || []).map((apt: any) => ({
+          id: apt.id,
+          userId: apt.user_id,
+          date: apt.date,
+          time: apt.time,
+          createdAt: apt.created_at,
+        }));
+        
+        // Carregar agendamentos do Supabase
+        setAppointments(convertedAppointments);
+        
+        // Atualizar localStorage com dados do Supabase
+        localStorage.setItem('appointments', JSON.stringify(convertedAppointments));
+        
+      } catch (error) {
+        console.error('[Supabase] Erro ao carregar (catch):', error);
+        // Fallback para localStorage
+        const stored = localStorage.getItem('appointments');
+        if (stored) {
+          setAppointments(JSON.parse(stored));
+        } else {
+          setAppointments(mockAppointments);
+        }
+      }
+    };
+    
+    loadAppointments();
   }, []);
 
-  const bookAppointment = (userId: string, date: string, time: string): boolean => {
+  const bookAppointment = async (userId: string, date: string, time: string): Promise<boolean> => {
     // Check if slot is already taken
     const slotTaken = appointments.some(
       (apt) => apt.date === date && apt.time === time
@@ -53,6 +96,30 @@ export const AppointmentProvider: React.FC<{ children: React.ReactNode }> = ({ c
     const updatedAppointments = [...appointments, newAppointment];
     setAppointments(updatedAppointments);
     localStorage.setItem('appointments', JSON.stringify(updatedAppointments));
+
+    // Gravação adicional no Supabase (não afeta funcionamento se falhar)
+    console.log('[Supabase] Iniciando gravação do agendamento:', newAppointment);
+    try {
+      const { data, error } = await supabase.from('appointments').insert({
+        id: newAppointment.id,
+        user_id: newAppointment.userId,
+        date: newAppointment.date,
+        time: newAppointment.time,
+        created_at: newAppointment.createdAt,
+      });
+      
+      console.log('[Supabase] Resultado do insert:', { data, error });
+      
+      if (error) {
+        console.error('[Supabase] Erro retornado pelo Supabase:', error);
+      } else {
+        console.log('[Supabase] Agendamento gravado com sucesso no Supabase');
+      }
+    } catch (error) {
+      // Silencioso: falha no Supabase não deve afetar o funcionamento do sistema
+      console.error('[Supabase] Erro ao gravar agendamento (catch):', error);
+    }
+
     return true;
   };
 

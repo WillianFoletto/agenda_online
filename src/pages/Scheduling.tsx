@@ -43,14 +43,14 @@ export const Scheduling: React.FC = () => {
     setError('');
   };
 
-  const handleBooking = () => {
+  const handleBooking = async () => {
     if (!user) return;
     if (!selectedTime) {
       setError('Por favor, selecione um horário.');
       return;
     }
 
-    const success = bookAppointment(user.id, selectedDate, selectedTime);
+    const success = await bookAppointment(user.id, selectedDate, selectedTime);
     if (success) {
       setShowSuccessModal(true);
       setSelectedTime(null);
