@@ -45,6 +45,7 @@ export const AppointmentProvider: React.FC<{ children: React.ReactNode }> = ({ c
           date: apt.date,
           time: apt.time,
           createdAt: apt.created_at,
+          status: apt.status,
         }));
         
         // Carregar agendamentos do Supabase
@@ -91,6 +92,7 @@ export const AppointmentProvider: React.FC<{ children: React.ReactNode }> = ({ c
       date,
       time,
       createdAt: new Date().toISOString(),
+      status: 'agendado',
     };
 
     const updatedAppointments = [...appointments, newAppointment];
@@ -106,6 +108,7 @@ export const AppointmentProvider: React.FC<{ children: React.ReactNode }> = ({ c
         date: newAppointment.date,
         time: newAppointment.time,
         created_at: newAppointment.createdAt,
+        status: 'agendado',
       });
       
       console.log('[Supabase] Resultado do insert:', { data, error });

@@ -12,6 +12,7 @@ export interface Appointment {
   date: string;
   time: string;
   createdAt: string;
+  status?: string;
 }
 
 export interface TimeSlot {

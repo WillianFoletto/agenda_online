@@ -8,6 +8,7 @@ interface Appointment {
   date: string;
   time: string;
   created_at: string;
+  status?: string;
 }
 
 interface User {
@@ -77,23 +78,55 @@ export const Admin = () => {
     return user?.name || userId;
   };
 
+  const getUserEmail = (userId: string): string => {
+    const user = users.find(u => u.id === userId);
+    return user?.email || '-';
+  };
+
+  const getFutureAppointmentsCount = (): number => {
+    const today = new Date().toISOString().split('T')[0];
+    return appointments.filter(apt => apt.date >= today).length;
+  };
+
   const handleCancel = async (id: string) => {
     const confirmed = window.confirm('Deseja realmente cancelar este agendamento?');
     if (!confirmed) return;
 
     try {
-      const { error } = await supabase.from('appointments').delete().eq('id', id);
+      console.log('[Admin] Iniciando cancelamento do agendamento');
+      console.log('[Admin] ID recebido:', id);
+      console.log('[Admin] Tipo do ID:', typeof id);
+      
+      // Buscar o registro antes do UPDATE
+      const { data: existingRecord, error: selectError } = await supabase
+        .from('appointments')
+        .select('*')
+        .eq('id', id)
+        .single();
+      
+      console.log('[Admin] Registro encontrado antes do UPDATE:', existingRecord);
+      console.log('[Admin] Erro no SELECT:', selectError);
+
+      const { data, error } = await supabase.from('appointments').update({ status: 'cancelado' }).eq('id', id).select();
+
+      console.log('[Admin] Resultado do UPDATE:', { data, error });
+      console.log('[Admin] Quantidade de linhas afetadas:', data?.length || 0);
 
       if (error) {
+        console.error('[Admin] Erro ao atualizar status no Supabase:', error);
         setError('Erro ao cancelar agendamento');
         return;
       }
 
+      console.log('[Admin] Status atualizado com sucesso no Supabase');
       setSuccessMessage('Agendamento cancelado com sucesso');
-      setAppointments(appointments.filter((apt) => apt.id !== id));
+      setAppointments(appointments.map((apt) => 
+        apt.id === id ? { ...apt, status: 'cancelado' } : apt
+      ));
 
       setTimeout(() => setSuccessMessage(null), 3000);
     } catch (err) {
+      console.error('[Admin] Erro ao cancelar (catch):', err);
       setError('Erro ao cancelar agendamento');
     }
   };
@@ -131,6 +164,21 @@ export const Admin = () => {
             Sair
           </button>
         </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="text-sm font-medium text-gray-500 mb-2">Total de Usuários</div>
+            <div className="text-3xl font-bold text-gray-900">{users.length}</div>
+          </div>
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="text-sm font-medium text-gray-500 mb-2">Total de Agendamentos</div>
+            <div className="text-3xl font-bold text-gray-900">{appointments.length}</div>
+          </div>
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="text-sm font-medium text-gray-500 mb-2">Agendamentos Futuros</div>
+            <div className="text-3xl font-bold text-gray-900">{getFutureAppointmentsCount()}</div>
+          </div>
+        </div>
         
         {successMessage && (
           <div className="mb-4 bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded">
@@ -146,10 +194,16 @@ export const Admin = () => {
                   Usuário
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  E-mail
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Data
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Horário
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Status
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Criado em
@@ -162,7 +216,7 @@ export const Admin = () => {
             <tbody className="bg-white divide-y divide-gray-200">
               {appointments.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-4 text-center text-gray-500">
+                  <td colSpan={7} className="px-6 py-4 text-center text-gray-500">
                     Nenhum agendamento encontrado
                   </td>
                 </tr>
@@ -173,10 +227,16 @@ export const Admin = () => {
                       {getUserName(appointment.user_id)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {getUserEmail(appointment.user_id)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {formatDate(appointment.date)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {appointment.time}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {appointment.status || '-'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {formatDateTime(appointment.created_at)}
