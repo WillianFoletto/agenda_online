@@ -6,6 +6,7 @@ import { Login } from './pages/Login';
 import { Register } from './pages/Register';
 import { Scheduling } from './pages/Scheduling';
 import { Admin } from './pages/Admin';
+import { AdminLogin } from './pages/AdminLogin';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isAuthenticated } = useAuth();
@@ -15,6 +16,11 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isAuthenticated } = useAuth();
   return !isAuthenticated ? <>{children}</> : <Navigate to="/agendamento" />;
+};
+
+const AdminProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const isAdminAuthenticated = localStorage.getItem('adminAuth') === 'true';
+  return isAdminAuthenticated ? <>{children}</> : <Navigate to="/admin/login" />;
 };
 
 function App() {
@@ -47,7 +53,15 @@ function App() {
                 </ProtectedRoute>
               }
             />
-            <Route path="/admin" element={<Admin />} />
+            <Route path="/admin/login" element={<AdminLogin />} />
+            <Route
+              path="/admin"
+              element={
+                <AdminProtectedRoute>
+                  <Admin />
+                </AdminProtectedRoute>
+              }
+            />
             <Route path="/" element={<Navigate to="/login" />} />
           </Routes>
         </Router>
