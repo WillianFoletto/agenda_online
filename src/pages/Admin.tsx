@@ -10,9 +10,16 @@ interface Appointment {
   created_at: string;
 }
 
+interface User {
+  id: string;
+  name: string;
+  email: string;
+}
+
 export const Admin = () => {
   const navigate = useNavigate();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -20,18 +27,30 @@ export const Admin = () => {
   useEffect(() => {
     const loadAppointments = async () => {
       try {
-        const { data, error } = await supabase
+        // Buscar agendamentos
+        const { data: appointmentsData, error: appointmentsError } = await supabase
           .from('appointments')
           .select('*')
           .order('date', { ascending: true })
           .order('time', { ascending: true });
 
-        if (error) {
-          setError(error.message);
+        if (appointmentsError) {
+          setError(appointmentsError.message);
           return;
         }
 
-        setAppointments(data || []);
+        setAppointments(appointmentsData || []);
+
+        // Buscar usuários
+        const { data: usersData, error: usersError } = await supabase
+          .from('users')
+          .select('id, name, email');
+
+        if (usersError) {
+          console.error('Erro ao carregar usuários:', usersError);
+        } else {
+          setUsers(usersData || []);
+        }
       } catch (err) {
         setError('Erro ao carregar agendamentos');
       } finally {
@@ -51,6 +70,11 @@ export const Admin = () => {
   const formatDateTime = (dateTimeString: string) => {
     const date = new Date(dateTimeString);
     return date.toLocaleString('pt-BR');
+  };
+
+  const getUserName = (userId: string): string => {
+    const user = users.find(u => u.id === userId);
+    return user?.name || userId;
   };
 
   const handleCancel = async (id: string) => {
@@ -119,7 +143,7 @@ export const Admin = () => {
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  User ID
+                  Usuário
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Data
@@ -146,7 +170,7 @@ export const Admin = () => {
                 appointments.map((appointment) => (
                   <tr key={appointment.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {appointment.user_id}
+                      {getUserName(appointment.user_id)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {formatDate(appointment.date)}

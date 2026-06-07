@@ -1,13 +1,14 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User } from '../types';
 import { mockUsers } from '../data/mockData';
+import { supabase } from '../lib/supabase';
 
 interface AuthContextType {
   user: User | null;
-  login: (email: string, password: string) => boolean;
+  login: (email: string, password: string) => Promise<boolean>;
   loginWithGoogle: () => boolean;
   loginWithFacebook: () => boolean;
-  register: (name: string, email: string, password: string) => boolean;
+  register: (name: string, email: string, password: string) => Promise<boolean>;
   logout: () => void;
   isAuthenticated: boolean;
 }
@@ -24,14 +25,66 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
-  const login = (email: string, password: string): boolean => {
-    const foundUser = mockUsers.find(u => u.email === email && u.password === password);
-    if (foundUser) {
-      setUser(foundUser);
-      localStorage.setItem('user', JSON.stringify(foundUser));
-      return true;
+  const login = async (email: string, password: string): Promise<boolean> => {
+    console.log('[Auth] Tentando login com email:', email);
+    
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('email', email)
+        .eq('password', password)
+        .single();
+
+      if (error) {
+        console.error('[Auth] Erro ao buscar usuário no Supabase:', error);
+        // Fallback para mockUsers
+        const foundUser = mockUsers.find(u => u.email === email && u.password === password);
+        if (foundUser) {
+          setUser(foundUser);
+          localStorage.setItem('user', JSON.stringify(foundUser));
+          console.log('[Auth] Login realizado com fallback mockUsers');
+          return true;
+        }
+        return false;
+      }
+
+      if (data) {
+        const user: User = {
+          id: data.id,
+          name: data.name,
+          email: data.email,
+          password: data.password,
+          avatar: data.avatar,
+        };
+        setUser(user);
+        localStorage.setItem('user', JSON.stringify(user));
+        console.log('[Auth] Login realizado com sucesso via Supabase');
+        return true;
+      }
+
+      // Fallback para mockUsers se não encontrar no Supabase
+      const foundUser = mockUsers.find(u => u.email === email && u.password === password);
+      if (foundUser) {
+        setUser(foundUser);
+        localStorage.setItem('user', JSON.stringify(foundUser));
+        console.log('[Auth] Login realizado com fallback mockUsers');
+        return true;
+      }
+
+      return false;
+    } catch (error) {
+      console.error('[Auth] Erro ao fazer login (catch):', error);
+      // Fallback para mockUsers
+      const foundUser = mockUsers.find(u => u.email === email && u.password === password);
+      if (foundUser) {
+        setUser(foundUser);
+        localStorage.setItem('user', JSON.stringify(foundUser));
+        console.log('[Auth] Login realizado com fallback mockUsers');
+        return true;
+      }
+      return false;
     }
-    return false;
   };
 
   const loginWithGoogle = (): boolean => {
@@ -58,21 +111,97 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return true;
   };
 
-  const register = (name: string, email: string, password: string): boolean => {
-    const existingUser = mockUsers.find(u => u.email === email);
-    if (existingUser) {
-      return false;
+  const register = async (name: string, email: string, password: string): Promise<boolean> => {
+    console.log('[Auth] Tentando registrar usuário com email:', email);
+    
+    try {
+      // Verificar se email já existe no Supabase
+      const { data: existingUser, error: checkError } = await supabase
+        .from('users')
+        .select('email')
+        .eq('email', email)
+        .single();
+
+      if (checkError && checkError.code !== 'PGRST116') {
+        console.error('[Auth] Erro ao verificar email no Supabase:', checkError);
+        // Fallback para mockUsers
+        const existingMockUser = mockUsers.find(u => u.email === email);
+        if (existingMockUser) {
+          console.log('[Auth] Email já existe (fallback mockUsers)');
+          return false;
+        }
+        const newUser: User = {
+          id: Date.now().toString(),
+          name,
+          email,
+          password,
+        };
+        mockUsers.push(newUser);
+        setUser(newUser);
+        localStorage.setItem('user', JSON.stringify(newUser));
+        console.log('[Auth] Registro realizado com fallback mockUsers');
+        return true;
+      }
+
+      if (existingUser) {
+        console.log('[Auth] Email já existe no Supabase');
+        return false;
+      }
+
+      // Inserir novo usuário no Supabase
+      const newUser: User = {
+        id: Date.now().toString(),
+        name,
+        email,
+        password,
+      };
+
+      const { error: insertError } = await supabase.from('users').insert({
+        id: newUser.id,
+        name: newUser.name,
+        email: newUser.email,
+        password: newUser.password,
+      });
+
+      if (insertError) {
+        console.error('[Auth] Erro ao inserir usuário no Supabase:', insertError);
+        // Fallback para mockUsers
+        const existingMockUser = mockUsers.find(u => u.email === email);
+        if (existingMockUser) {
+          console.log('[Auth] Email já existe (fallback mockUsers)');
+          return false;
+        }
+        mockUsers.push(newUser);
+        setUser(newUser);
+        localStorage.setItem('user', JSON.stringify(newUser));
+        console.log('[Auth] Registro realizado com fallback mockUsers');
+        return true;
+      }
+
+      setUser(newUser);
+      localStorage.setItem('user', JSON.stringify(newUser));
+      console.log('[Auth] Registro realizado com sucesso via Supabase');
+      return true;
+    } catch (error) {
+      console.error('[Auth] Erro ao registrar (catch):', error);
+      // Fallback para mockUsers
+      const existingMockUser = mockUsers.find(u => u.email === email);
+      if (existingMockUser) {
+        console.log('[Auth] Email já existe (fallback mockUsers)');
+        return false;
+      }
+      const newUser: User = {
+        id: Date.now().toString(),
+        name,
+        email,
+        password,
+      };
+      mockUsers.push(newUser);
+      setUser(newUser);
+      localStorage.setItem('user', JSON.stringify(newUser));
+      console.log('[Auth] Registro realizado com fallback mockUsers');
+      return true;
     }
-    const newUser: User = {
-      id: Date.now().toString(),
-      name,
-      email,
-      password,
-    };
-    mockUsers.push(newUser);
-    setUser(newUser);
-    localStorage.setItem('user', JSON.stringify(newUser));
-    return true;
   };
 
   const logout = () => {

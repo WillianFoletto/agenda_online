@@ -13,7 +13,7 @@ export const Register: React.FC = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
 
-  const handleRegister = (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
@@ -32,7 +32,7 @@ export const Register: React.FC = () => {
       return;
     }
 
-    const success = register(name, email, password);
+    const success = await register(name, email, password);
     if (success) {
       navigate('/agendamento');
     } else {
